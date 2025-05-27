@@ -1,0 +1,548 @@
+{
+  "name": "claude corrige 2",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "Label_5036940019400345494"
+          ]
+        },
+        "options": {}
+      },
+      "id": "18fd0775-5a0d-4b84-b430-350bfe065ed1",
+      "name": "Gmail Trigger - Classement",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        80,
+        140
+      ],
+      "typeVersion": 1.2,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "iaOuWh6cqB9EUxjW",
+          "name": "Gmail account thibault@wilkins-avenue.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "SENT"
+          ]
+        },
+        "options": {}
+      },
+      "id": "5e9334b4-05bf-49ec-94cd-f98064270813",
+      "name": "Gmail Trigger - Sent",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        80,
+        340
+      ],
+      "typeVersion": 1.2,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "iaOuWh6cqB9EUxjW",
+          "name": "Gmail account thibault@wilkins-avenue.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "id": "a702a0d3-6638-4729-817c-d79e700a9723",
+      "name": "Get Email Details",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        480,
+        240
+      ],
+      "typeVersion": 2.1,
+      "webhookId": "2cf3dbe7-81fb-4c80-ab43-2fda75f05a93",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "iaOuWh6cqB9EUxjW",
+          "name": "Gmail account thibault@wilkins-avenue.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const email = $input.first().json;\n  const myEmail = 'thibault@wilkins-avenue.com';\n  \n  // Vérifier si l'email a le label SENT pour déterminer la direction\n  const hasLabelSent = email.labelIds && email.labelIds.includes('SENT');\n  \n  // Déterminer la direction basée sur les labels et l'expéditeur\n  const fromEmail = email.from?.value?.[0]?.address || email.from?.text?.match(/[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}/)?.[0] || '';\n  let direction;\n  \n  if (hasLabelSent) {\n    direction = 'Envoyé';\n  } else {\n    direction = 'Reçu';\n  }\n  \n  // Extraire tous les contacts selon la direction\n  const contacts = new Set();\n  \n  // Fonction pour extraire emails d'un champ\n  function extractEmails(field) {\n    if (!field) return;\n    \n    if (Array.isArray(field)) {\n      field.forEach(item => {\n        if (item.address) contacts.add(item.address.toLowerCase());\n      });\n    } else if (field.value && Array.isArray(field.value)) {\n      field.value.forEach(item => {\n        if (item.address) contacts.add(item.address.toLowerCase());\n      });\n    } else if (typeof field === 'string') {\n      const emailRegex = /[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}/g;\n      const matches = field.match(emailRegex);\n      if (matches) {\n        matches.forEach(match => contacts.add(match.toLowerCase()));\n      }\n    }\n  }\n  \n  if (direction === 'Reçu') {\n    extractEmails(email.from);\n  } else {\n    extractEmails(email.to);\n    extractEmails(email.cc);\n    extractEmails(email.bcc);\n  }\n  \n  // Retirer mon propre email des contacts\n  contacts.delete(myEmail.toLowerCase());\n  \n  // Créer le corps du message en texte brut\n  let bodyText = '';\n  if (email.text) {\n    bodyText = email.text;\n  } else if (email.textAsHtml) {\n    bodyText = email.textAsHtml.replace(/<[^>]*>/g, '').replace(/\\s+/g, ' ').trim();\n  }\n  \n  // Convertir les contacts en string (au lieu d'array)\n  const contactsString = Array.from(contacts).join(', ');\n  \n  // Créer les infos complètes\n  const infosCompletes = [\n    `Sujet: ${email.subject || ''}`,\n    `Date: ${email.date || ''}`,\n    `Direction: ${direction}`,\n    `MessageID: ${email.id || ''}`,\n    `ThreadID: ${email.threadId || ''}`,\n    `Contact: ${contactsString}`,\n    `Corps du message: ${bodyText}`,\n    `---`,\n    `From: ${fromEmail}`,\n    `To: ${email.to?.text || email.to?.value?.map(v => v.address).join(', ') || ''}`,\n    `CC: ${email.cc?.text || email.cc?.value?.map(v => v.address).join(', ') || ''}`,\n    `BCC: ${email.bcc?.text || email.bcc?.value?.map(v => v.address).join(', ') || ''}`\n  ].filter(line => {\n    const colonIndex = line.indexOf(':');\n    return colonIndex === -1 || line.substring(colonIndex + 1).trim() !== '';\n  }).join('\\n');\n  \n  return {\n    json: {\n      sujet: email.subject || '',\n      date: email.date || new Date().toISOString(),\n      direction: direction,\n      corpsMessage: bodyText,\n      messageId: email.id || '',\n      threadId: email.threadId || '',\n      contact: contactsString, // Changé en string\n      infosCompletes: infosCompletes,\n      originalEmail: email\n    }\n  };\n} catch (error) {\n  console.error('Erreur lors du traitement de l\\'email:', error);\n  return {\n    json: {\n      error: error.message,\n      originalData: $input.first().json,\n      sujet: 'Erreur de traitement',\n      date: new Date().toISOString(),\n      direction: 'Erreur',\n      corpsMessage: 'Erreur lors du traitement: ' + error.message,\n      messageId: $input.first().json?.id || 'unknown',\n      threadId: $input.first().json?.threadId || 'unknown',\n      contact: '',\n      infosCompletes: 'Erreur: ' + error.message\n    }\n  };\n}"
+      },
+      "id": "7dc44b7e-2ed0-437a-a98c-e3dbe059ae2b",
+      "name": "Process Email Data",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        680,
+        240
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appqQgyCtbRuWP5MZ",
+          "mode": "list",
+          "cachedResultName": "Historique Emails",
+          "cachedResultUrl": "https://airtable.com/appqQgyCtbRuWP5MZ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl1JoVWaPsC2LXQd",
+          "mode": "list",
+          "cachedResultName": "Emails",
+          "cachedResultUrl": "https://airtable.com/appqQgyCtbRuWP5MZ/tbl1JoVWaPsC2LXQd"
+        },
+        "filterByFormula": "=MessageID = '{{ $json.messageId }}'",
+        "options": {}
+      },
+      "id": "45783140-7c19-47d5-b79b-ef2d2a5434fe",
+      "name": "Check for Duplicates",
+      "type": "n8n-nodes-base.airtable",
+      "position": [
+        880,
+        240
+      ],
+      "typeVersion": 2.1,
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "cxVF5OrBETKI4L3E",
+          "name": "Airtable Base historique emails"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Récupérer les données du check de doublons et de l'email\nconst duplicateResults = $('Check for Duplicates').all();\nconst emailData = $('Process Email Data').first().json;\n\nconsole.log('Duplicate results:', JSON.stringify(duplicateResults, null, 2));\n\n// Vérifier s'il y a de vrais doublons\n// Un résultat vide d'Airtable retourne souvent [{}] ou [{\"id\": \"\"}]\nlet hasDuplicates = false;\n\nif (duplicateResults && duplicateResults.length > 0) {\n  // Vérifier si on a de vrais enregistrements (avec un ID valide)\n  hasDuplicates = duplicateResults.some(result => {\n    const record = result.json || result;\n    return record && record.id && record.id.trim() !== '';\n  });\n}\n\nconsole.log('Has duplicates:', hasDuplicates);\nconsole.log('Email MessageID:', emailData.messageId);\n\nif (hasDuplicates) {\n  // Il y a des vrais doublons - ne pas créer d'enregistrement\n  return {\n    json: {\n      action: 'skip',\n      reason: 'duplicate_found',\n      messageId: emailData.messageId,\n      duplicateCount: duplicateResults.filter(r => (r.json || r).id && (r.json || r).id.trim() !== '').length,\n      message: `Email déjà traité - MessageID: ${emailData.messageId}`,\n      timestamp: new Date().toISOString()\n    }\n  };\n} else {\n  // Pas de doublons - procéder à la création\n  return {\n    json: {\n      action: 'create',\n      reason: 'no_duplicate',\n      messageId: emailData.messageId,\n      emailData: emailData,\n      message: `Nouvel email à traiter - MessageID: ${emailData.messageId}`,\n      timestamp: new Date().toISOString()\n    }\n  };\n}"
+      },
+      "id": "f904c565-9e09-41b4-86e8-0ee0a39766a7",
+      "name": "Duplicate Check Logic",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1080,
+        240
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "action-is-create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9729284f-b36c-4ba8-8a19-ac42bcc13ba6",
+      "name": "Should Create Record?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1280,
+        240
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appqQgyCtbRuWP5MZ",
+          "mode": "list",
+          "cachedResultName": "Historique Emails",
+          "cachedResultUrl": "https://airtable.com/appqQgyCtbRuWP5MZ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl1JoVWaPsC2LXQd",
+          "mode": "list",
+          "cachedResultName": "Emails",
+          "cachedResultUrl": "https://airtable.com/appqQgyCtbRuWP5MZ/tbl1JoVWaPsC2LXQd"
+        },
+        "columns": {
+          "value": {
+            "Sujet": "={{ $('Duplicate Check Logic').item.json.emailData.sujet }}",
+            "Date": "={{ $('Duplicate Check Logic').item.json.emailData.date }}",
+            "Direction": "={{ $('Duplicate Check Logic').item.json.emailData.direction }}",
+            "Corps du message": "={{ $('Duplicate Check Logic').item.json.emailData.corpsMessage }}",
+            "MessageID": "={{ $('Duplicate Check Logic').item.json.emailData.messageId }}",
+            "Thread ID": "={{ $('Duplicate Check Logic').item.json.emailData.threadId }}",
+            "Contact": "={{ $('Duplicate Check Logic').item.json.emailData.contact }}",
+            "Infos complètes": "={{ $('Duplicate Check Logic').item.json.emailData.infosCompletes }}"
+          },
+          "schema": [
+            {
+              "id": "Sujet",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Sujet"
+            },
+            {
+              "id": "Date",
+              "type": "dateTime",
+              "display": true,
+              "required": false,
+              "displayName": "Date"
+            },
+            {
+              "id": "Direction",
+              "type": "options",
+              "display": true,
+              "required": false,
+              "displayName": "Direction",
+              "options": [
+                {
+                  "name": "Reçu",
+                  "value": "Reçu"
+                },
+                {
+                  "name": "Envoyé",
+                  "value": "Envoyé"
+                }
+              ]
+            },
+            {
+              "id": "Corps du message",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Corps du message"
+            },
+            {
+              "id": "MessageID",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "MessageID"
+            },
+            {
+              "id": "Thread ID",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Thread ID"
+            },
+            {
+              "id": "Contact",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Contact"
+            },
+            {
+              "id": "Infos complètes",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "Infos complètes"
+            }
+          ],
+          "mappingMode": "defineBelow"
+        },
+        "options": {}
+      },
+      "id": "b1284aa5-d25d-4c11-9e93-50a5574bf4ec",
+      "name": "Create Airtable Record",
+      "type": "n8n-nodes-base.airtable",
+      "position": [
+        1480,
+        140
+      ],
+      "typeVersion": 2.1,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "cxVF5OrBETKI4L3E",
+          "name": "Airtable Base historique emails"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-message",
+              "name": "message",
+              "type": "string",
+              "value": "{{ $('Duplicate Check Logic').item.json.message }}"
+            },
+            {
+              "id": "messageId",
+              "name": "messageId",
+              "type": "string",
+              "value": "{{ $('Duplicate Check Logic').item.json.messageId }}"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "{{ $('Duplicate Check Logic').item.json.timestamp }}"
+            },
+            {
+              "id": "duplicate-count",
+              "name": "duplicateCount",
+              "type": "number",
+              "value": "{{ $('Duplicate Check Logic').item.json.duplicateCount }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a05f9068-357c-4d9f-8a42-2791ed3382b1",
+      "name": "Handle Duplicates Log",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1480,
+        340
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "success-message",
+              "name": "message",
+              "type": "string",
+              "value": "Email archivé avec succès - MessageID: {{ $('Duplicate Check Logic').item.json.emailData.messageId }}"
+            },
+            {
+              "id": "airtable-record-id",
+              "name": "recordId",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "id": "direction",
+              "name": "direction",
+              "type": "string",
+              "value": "={{ $('Duplicate Check Logic').item.json.emailData.direction }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5757d7cd-e2af-4d57-9dfa-8f1cd90face8",
+      "name": "Success Log",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1680,
+        140
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {},
+      "id": "50d205ec-8a0d-4aaa-8581-fd17031be34d",
+      "name": "Merge Email Triggers",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        280,
+        240
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "content": "## ✅ PROBLÈME RÉSOLU - Champ Contact\n\n**ERREUR**: `Insufficient permissions to create new select option`\n\n**CAUSE**: Le champ \"Contact\" dans Airtable était configuré comme:\n- Multiple Select ou Select\n- Mais envoyé comme array depuis n8n\n\n**SOLUTION**: \n1. Changé le contact en string dans Process Email Data\n2. Changé le type de \"array\" à \"string\" dans Create Airtable Record\n3. Les emails sont maintenant joints par des virgules\n\n**RÉSULTAT**: Plus d'erreur de permissions Airtable",
+        "height": 480,
+        "width": 380,
+        "color": 3
+      },
+      "id": "20d80143-e5f5-49ed-8f91-53cf70408af6",
+      "name": "✅ CONTACT FIX",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        -300
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Alternative: Si vous voulez garder le Contact comme array/tags\n\n**Option 1**: Modifier le champ dans Airtable\n- Changer \"Contact\" en type \"Long text\" au lieu de \"Multiple Select\"\n\n**Option 2**: Configurer les permissions Airtable\n- Aller dans les paramètres de la base\n- Autoriser la création d'options pour le champ Contact\n\n**Option 3**: Pré-créer les contacts\n- Ajouter manuellement les emails comme options dans le champ Select\n\n**Recommandation**: Garder en string (solution actuelle) car plus flexible",
+        "height": 460,
+        "width": 380,
+        "color": 4
+      },
+      "id": "cd8c6f26-c964-42d0-a267-284986b74a0a",
+      "name": "Alternatives",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1600,
+        -360
+      ],
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger - Classement": {
+      "main": [
+        [
+          {
+            "node": "Merge Email Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger - Sent": {
+      "main": [
+        [
+          {
+            "node": "Merge Email Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Email Triggers": {
+      "main": [
+        [
+          {
+            "node": "Get Email Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email Details": {
+      "main": [
+        [
+          {
+            "node": "Process Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Email Data": {
+      "main": [
+        [
+          {
+            "node": "Check for Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Check Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Check Logic": {
+      "main": [
+        [
+          {
+            "node": "Should Create Record?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Create Record?": {
+      "main": [
+        [
+          {
+            "node": "Create Airtable Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Duplicates Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Airtable Record": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8813a500-3f48-421b-b316-c6de0bb1f1c1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "76ae6df253c00c966214b1c7d070049e464270a17b6d90cb5d4a9b1d4b121ee9"
+  },
+  "id": "QxaweOV5Au1MIQ0S",
+  "tags": []
+}
