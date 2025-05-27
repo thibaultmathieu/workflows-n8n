@@ -66,7 +66,7 @@
       ],
       "parameters": {
         "jsCode": "try {\n  return items.map(item => {\n    const email = item.json;\n    const isSent = (email.labelIds || []).includes('SENT');\n    const direction = isSent ? 'Envoyé' : 'Reçu';\n    const parse = field => (email[field]?.text || '').split(',').map(a => a.trim()).filter(Boolean);\n    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));\n    const subject = email.subject || '';\n    const date = email.date || '';\n    const body = email.text || email.textPlain || '';\n    const messageId = email.messageId || email.id || '';\n    const threadId = email.threadId || '';\n    const infos = `Subject: ${subject}\nDate: ${date}\nDirection: ${direction}\nBody: ${body}\nMessageID: ${messageId}\nThreadID: ${threadId}\nContact: ${contacts.join(', ')}`;\n    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };\n  });\n} catch (err) {\n  return [{ json: { error: err.message } }];\n}"},
-      "typeVersion": 3
+      "typeVersion": 2
     },
     {
       "id": "a34934ff-9f16-467a-bc78-e61216c4da0c",
