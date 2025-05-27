@@ -14,7 +14,7 @@
         300
       ],
       "parameters": {
-        "simple": false,
+        "simple": true,
         "filters": {
           "q": "in:sent OR label:Classement"
         },
@@ -45,6 +45,7 @@
       ],
       "parameters": {
         "operation": "get",
+        "simple": true,
         "messageId": "={{ $json.id }}",
         "options": {}
       },
@@ -65,7 +66,8 @@
         300
       ],
       "parameters": {
-        "jsCode": "try {\n  return items.map(item => {\n    const email = item.json;\n    const isSent = (email.labelIds || []).includes('SENT');\n    const direction = isSent ? 'Envoyé' : 'Reçu';\n    const parse = field => (email[field]?.text || '').split(',').map(a => a.trim()).filter(Boolean);\n    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));\n    const subject = email.subject || '';\n    const date = email.date || '';\n    const body = email.text || email.textPlain || '';\n    const messageId = email.messageId || email.id || '';\n    const threadId = email.threadId || '';\n    const infos = `Subject: ${subject}\nDate: ${date}\nDirection: ${direction}\nBody: ${body}\nMessageID: ${messageId}\nThreadID: ${threadId}\nContact: ${contacts.join(', ')}`;\n    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };\n  });\n} catch (err) {\n  return [{ json: { error: err.message } }];\n}"},
+        "jsCode": "\"try {\\n  return items.map(item => {\\n    const email = item.json;\\n    const isSent = (email.labelIds || []).includes('SENT');\\n    const direction = isSent ? 'Envoyé' : 'Reçu';\\n    const parse = field => {\\n      const value = email[field];\\n      if (!value) return [];\\n      if (typeof value === 'string') {\\n        return value.split(',').map(a => a.trim()).filter(Boolean);\\n      }\\n      if (value.text) {\\n        return value.text.split(',').map(a => a.trim()).filter(Boolean);\\n      }\\n      if (Array.isArray(value.value)) {\\n        return value.value.map(v => `${v.name ? `${v.name} ` : ''}<${v.address}>`);\\n      }\\n      return [];\\n    };\\n    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));\\n    const subject = email.subject || email.headers?.subject || '';\\n    const date = email.date || email.headers?.date || '';\\n    const body = email.text || email.textPlain || email.textHtml || email.html || email.snippet || '';\\n    const messageId = email.messageId || email.id || email.headers?.messageId || '';\\n    const threadId = email.threadId || '';\\n    const infos = `Subject: ${subject}\\\\nDate: ${date}\\\\nDirection: ${direction}\\\\nBody: ${body}\\\\nMessageID: ${messageId}\\\\nThreadID: ${threadId}\\\\nContact: ${contacts.join(', ')}`;\\n    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };\\n  });\\n} catch (err) {\\n  return [{ json: { error: err.message } }];\\n}\\n\""
+      },
       "typeVersion": 2
     },
     {
