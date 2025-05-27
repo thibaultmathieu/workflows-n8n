@@ -14,7 +14,7 @@
         300
       ],
       "parameters": {
-        "simple": false,
+        "simple": true,
         "filters": {
           "q": "in:sent OR label:Classement"
         },
@@ -45,6 +45,7 @@
       ],
       "parameters": {
         "operation": "get",
+        "simple": true,
         "messageId": "={{ $json.id }}",
         "options": {}
       },
