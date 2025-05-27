@@ -1,0 +1,189 @@
+{
+  "id": "MclgFBZUoMedlbnb",
+  "meta": {
+    "instanceId": "zHVoB2p5qtMXXc8Eg6chi8cbpnYA7SH4f1aZ13Cmin7QaTElx8QzHA9DTgStUdSl"
+  },
+  "name": "Gmail to Airtable Archive",
+  "nodes": [
+    {
+      "id": "566e1c2e-efa7-4ea4-b777-cbdf5d38439c",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        -600,
+        300
+      ],
+      "parameters": {
+        "simple": false,
+        "filters": {
+          "q": "in:sent OR label:Classement"
+        },
+        "options": {},
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL",
+          "name": "Gmail OAuth2 Account"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "3d246970-d3c4-4036-a417-7aa15a8fac16",
+      "name": "Get Email",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        -300,
+        300
+      ],
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL",
+          "name": "Gmail OAuth2 Account"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "12cc9c5f-9b0c-4c7f-b5ac-70d7b53c1ae9",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "jsCode": "try {
+  return items.map(item => {
+    const email = item.json;
+    const isSent = (email.labelIds || []).includes('SENT');
+    const direction = isSent ? 'Envoyé' : 'Reçu';
+    const parse = field => (email[field]?.text || '').split(',').map(a => a.trim()).filter(Boolean);
+    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));
+    const subject = email.subject || '';
+    const date = email.date || '';
+    const body = email.text || email.textPlain || '';
+    const messageId = email.messageId || email.id || '';
+    const threadId = email.threadId || '';
+    const infos = `Subject: ${subject}
+Date: ${date}
+Direction: ${direction}
+Body: ${body}
+MessageID: ${messageId}
+ThreadID: ${threadId}
+Contact: ${contacts.join(', ')}`;
+    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };
+  });
+} catch (err) {
+  return [{ json: { error: err.message } }];
+}"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "a34934ff-9f16-467a-bc78-e61216c4da0c",
+      "name": "Create Airtable Record",
+      "type": "n8n-nodes-base.airtable",
+      "position": [
+        300,
+        300
+      ],
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "appXXXXXXXXXXXXXX"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "tblXXXXXXXXXXXXXX"
+        },
+        "columns": {
+          "value": {
+            "Subject": "={{ $json.Subject }}",
+            "Date": "={{ $json.Date }}",
+            "Direction": "={{ $json.Direction }}",
+            "Body": "={{ $json.Body }}",
+            "MessageID": "={{ $json.MessageID }}",
+            "ThreadID": "={{ $json.ThreadID }}",
+            "Contact": "={{ $json.Contact }}",
+            "Infos_completes": "={{ $json['Infos_completes'] }}"
+          }
+        },
+        "options": {},
+        "operation": "create"
+      },
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_AIRTABLE",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "5046b9a2-9780-42ed-a922-1a16a657ed4d",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -600,
+        140
+      ],
+      "parameters": {
+        "content": "## Gmail to Airtable Archive\nTriggered on 'Sent' or 'Classement' labels"
+      },
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "Create Airtable Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": []
+}
