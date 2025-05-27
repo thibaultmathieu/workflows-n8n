@@ -65,31 +65,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "try {
-  return items.map(item => {
-    const email = item.json;
-    const isSent = (email.labelIds || []).includes('SENT');
-    const direction = isSent ? 'Envoyé' : 'Reçu';
-    const parse = field => (email[field]?.text || '').split(',').map(a => a.trim()).filter(Boolean);
-    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));
-    const subject = email.subject || '';
-    const date = email.date || '';
-    const body = email.text || email.textPlain || '';
-    const messageId = email.messageId || email.id || '';
-    const threadId = email.threadId || '';
-    const infos = `Subject: ${subject}
-Date: ${date}
-Direction: ${direction}
-Body: ${body}
-MessageID: ${messageId}
-ThreadID: ${threadId}
-Contact: ${contacts.join(', ')}`;
-    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };
-  });
-} catch (err) {
-  return [{ json: { error: err.message } }];
-}"
-      },
+        "jsCode": "try {\n  return items.map(item => {\n    const email = item.json;\n    const isSent = (email.labelIds || []).includes('SENT');\n    const direction = isSent ? 'Envoyé' : 'Reçu';\n    const parse = field => (email[field]?.text || '').split(',').map(a => a.trim()).filter(Boolean);\n    const contacts = Array.from(new Set([...parse('from'), ...parse('to'), ...parse('cc'), ...parse('bcc')]));\n    const subject = email.subject || '';\n    const date = email.date || '';\n    const body = email.text || email.textPlain || '';\n    const messageId = email.messageId || email.id || '';\n    const threadId = email.threadId || '';\n    const infos = `Subject: ${subject}\nDate: ${date}\nDirection: ${direction}\nBody: ${body}\nMessageID: ${messageId}\nThreadID: ${threadId}\nContact: ${contacts.join(', ')}`;\n    return { json: { Subject: subject, Date: date, Direction: direction, Body: body, MessageID: messageId, ThreadID: threadId, Contact: contacts, Infos_completes: infos } };\n  });\n} catch (err) {\n  return [{ json: { error: err.message } }];\n}"},
       "typeVersion": 3
     },
     {
